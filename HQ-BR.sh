@@ -3,11 +3,9 @@ hostnamectl set-hostname isp; exec bash
 	sudo tee /etc/network/interfaces > /dev/null <<EOF
 auto eth0
 iface eth0 inet dhcp
-
 auto eth1
 iface eth1 inet static
     address 172.16.4.1/28
-
 auto eth2
 iface eth2 inet static
     address 172.16.5.1/28
