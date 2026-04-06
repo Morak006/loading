@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/! /bin/bash
 hostnamectl set-hostname isp; exec bash
 	sudo tee /etc/network/interfaces > /dev/null <<EOF
 auto eth0
