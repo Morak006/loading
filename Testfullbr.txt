@@ -1,0 +1,63 @@
+! --- Системные настройки и доступ ---
+conf t
+hostname br-rtr
+ip domain-name au-team.irpo
+username net_admin password P@$$word role admin
+exit
+
+! --- Настройка L3-интерфейсов ---
+interface isp 
+ description "connect ISP"
+ ip address 172.16.5.14/28
+ ip nat outside
+exit
+
+interface BR-NET
+ description "Connect BR-NET"
+ ip address 192.168.200.1/27
+ ip nat inside
+exit
+
+! --- Привязка к физическим портам ---
+port te0
+ service-instance te0/isp
+  encapsulation untagged
+  connect ip interface isp
+ exit
+exit
+
+port te1
+ service-instance te1/BR-NET
+  encapsulation untagged
+  connect ip interface BR-NET
+ exit
+exit
+
+! --- VPN Туннель и Маршрутизация ---
+interface tunnel.0
+ description "GRE-to-HQ"
+ ip address 10.10.10.2/30
+ ip tunnel 172.16.5.14 172.16.4.14 mode gre
+ ip ospf authentication message-digest
+ ip ospf message-digest-key 1 md5 P@$$word
+exit
+
+ip route 0.0.0.0/0 172.16.5.1
+
+router ospf 1
+ ospf router-id 10.10.10.2
+ passive-interface default
+ no passive-interface tunnel.0
+ network 10.10.10.0/30 area 0
+ network 192.168.200.0/27 area 0
+exit
+
+! --- Настройка NAT ---
+! Примечание: название пула изменено на BR для логики, 
+! либо оставьте HQ, если это критично для ваших скриптов.
+ip nat pool BR 172.16.5.14 172.16.5.14 
+ip nat source dynamic inside-to-outside pool BR overload interface isp
+
+! --- Завершение и проверка ---
+do write memory
+show ip interface brief

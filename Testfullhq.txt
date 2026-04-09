@@ -1,0 +1,98 @@
+! --- Системные настройки и доступ ---
+conf t
+hostname hq-rtr
+ip domain-name au-team.irpo
+username net_admin
+password P@$$word 
+role admin
+exit
+
+! --- Настройка L3-интерфейсов (логическая часть) ---
+interface isp 
+ description "connect ISP"
+ ip address 172.16.4.14/28
+ ip nat outside
+exit
+
+interface vl100
+ description "Server - vlan100"
+ ip address 192.168.100.1/26
+ ip nat inside
+exit
+
+interface vl200
+ description "Client - vlan200"
+ ip address 192.168.100.65/28
+ ip nat inside
+ dhcp-server 1
+exit
+
+interface vl999
+ description "Management - vlan999"
+ ip address 192.168.100.81/29
+ ip nat inside
+exit
+
+! --- Привязка к физическим портам (L2/L3 Mapping) ---
+port te0
+ service-instance te0/isp
+  encapsulation untagged
+  connect ip interface isp
+ exit
+exit
+
+port te1
+ service-instance te1/vl100
+  encapsulation dot1q 100 exact
+  rewrite pop 1
+  connect ip interface vl100
+ exit
+ service-instance te1/vl200
+  encapsulation dot1q 200 exact
+  rewrite pop 1
+  connect ip interface vl200
+ exit
+ service-instance te1/vl999
+  encapsulation dot1q 999 exact 
+  rewrite pop 1
+  connect ip interface vl999
+ exit
+exit
+
+! --- VPN Туннель и Маршрутизация ---
+interface tunnel.0
+ description "GRE-to-BR"
+ ip address 10.10.10.1/30
+ ip tunnel 172.16.4.14 172.16.5.14 mode gre
+ ip ospf authentication message-digest
+ ip ospf message-digest-key 1 md5 P@$$word
+exit
+
+ip route 0.0.0.0/0 172.16.4.1
+
+router ospf 1
+ ospf router-id 10.10.10.1
+ passive-interface default
+ no passive-interface tunnel.0
+ network 10.10.10.0/30 area 0
+ network 192.168.100.0/26 area 0
+ network 192.168.100.64/28 area 0
+ network 192.168.100.80/29 area 0
+exit
+
+! --- Сервисы: NAT и DHCP ---
+ip nat pool HQ 192.168.100.1-192.168.100.254
+ip nat source dynamic inside-to-outside pool HQ overload interface isp
+
+ip pool HQ 192.168.100.66-192.168.100.78
+
+dhcp-server 1
+ pool HQ 1
+  mask 28
+  gateway 192.168.100.65
+  dns 192.168.100.2
+  domain-name au-team.irpo
+exit
+
+! --- Сохранение ---
+do write memory
